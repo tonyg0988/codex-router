@@ -2418,6 +2418,7 @@ streaming, image-input, tool-call, and context behavior are verified. See
 - [Architecture and request flow](docs/HOW-IT-WORKS.md)
 - [Security and credential handling](SECURITY.md)
 - [Provider development and tests](docs/DEVELOPMENT.md)
+- [OpenCode Go reasoning/replay RCA and update runbook](docs/OPENCODE-GO-REASONING-REPLAY-RCA.md)
 - [Verifying the Devin CLI provider](docs/DEVIN-CLI-PROBE.md)
 - [Changelog](CHANGELOG.md)
 

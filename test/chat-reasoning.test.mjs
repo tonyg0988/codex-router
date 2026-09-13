@@ -20,12 +20,21 @@ test("native chat reasoning stays scoped to established history contracts", () =
   assert.equal(usesNativeChatReasoning({
     provider: "commandcode", upstreamModel: "deepseek/deepseek-v4-flash",
   }), true);
+  for (const upstreamModel of [
+    "deepseek-v4-flash",
+    "deepseek-v4-pro",
+    "deepseek-v4.1-flash",
+    "glm-5.3-flash",
+  ]) {
+    assert.equal(usesNativeChatReasoning({ provider: "opencode-go", upstreamModel }), true);
+  }
   for (const model of [
     undefined,
     // With no `upstreamModel` this asserted nothing: String(undefined ?? "")
     // matches no family, so it passed whether or not the alias was swept in.
     // `deepseek-chat` is the real shipped id, and it ships thinking disabled.
     { provider: "deepseek", upstreamModel: "deepseek-chat", requestProfile: "deepseek-nonthinking" },
+    { provider: "opencode-go", upstreamModel: "grok-4.5" },
     { provider: "custom", upstreamModel: "deepseek/deepseek-v4-flash" },
     // Non-thinking Kimi stays out: k2.6 does not preserve thinking, and no
     // reseller route for k2.7 was probed.
@@ -165,6 +174,12 @@ test("pinned LiteLLM replays Chat reasoning exactly once", { skip: !python, time
     { type: "reasoning", content: [{ type: "reasoning_text", text: "TOOL_REASONING_TWO" }] },
     { type: "function_call", name: "probe", call_id: "call_fixture", arguments: "{}" },
     { type: "function_call_output", call_id: "call_fixture", output: "fixture result" },
+    // Real Codex tool loops commonly omit a reasoning item on an intermediate
+    // turn. LiteLLM must not replay that turn's visible message once for the
+    // message item and again while folding the following function call.
+    { type: "message", role: "assistant", content: [{ type: "output_text", text: "NO_REASONING_VISIBLE" }] },
+    { type: "function_call", name: "probe", call_id: "call_no_reasoning", arguments: "{}" },
+    { type: "function_call_output", call_id: "call_no_reasoning", output: "second fixture result" },
     { type: "reasoning", content: [{ type: "reasoning_text", text: "ANSWER_REASONING" }] },
     { type: "message", role: "assistant", content: [{ type: "output_text", text: "FINAL_VISIBLE" }] },
     { type: "message", role: "user", content: "Continue the synthetic check." },
@@ -178,7 +193,7 @@ test("pinned LiteLLM replays Chat reasoning exactly once", { skip: !python, time
       assert.equal(messages.some((message) => JSON.stringify(message.content)?.includes(marker)), false,
         "Reasoning must not become visible assistant or user text");
     }
-    for (const marker of ["FIRST_VISIBLE", "FINAL_VISIBLE"]) {
+    for (const marker of ["FIRST_VISIBLE", "NO_REASONING_VISIBLE", "FINAL_VISIBLE"]) {
       assert.equal(serialized.split(marker).length - 1, 1, "Visible answers must remain exactly once");
     }
     const toolTurn = messages.find((message) => message.tool_calls?.[0]?.id === "call_fixture");
@@ -248,6 +263,7 @@ asyncio.run(main())
       DEEPSEEK_API_BASE_URL: `http://127.0.0.1:${upstream.address().port}/v1`, DEEPSEEK_API_KEY: "TEST_DEEPSEEK_KEY",
       ZAI_CODING_BASE_URL: `http://127.0.0.1:${upstream.address().port}/v1`, ZAI_API_KEY: "TEST_ZAI_KEY",
       COMMANDCODE_BASE_URL: `http://127.0.0.1:${upstream.address().port}/v1`, COMMAND_CODE_API_KEY: "TEST_COMMANDCODE_KEY",
+      OPENCODE_GO_BASE_URL: `http://127.0.0.1:${upstream.address().port}/v1`, OPENCODE_GO_API_KEY: "TEST_OPENCODE_GO_KEY",
     };
     const output = childOutput();
     const services = ["api-forwarder.mjs", "router.mjs"].map((script) => output.capture(script,
@@ -258,7 +274,13 @@ asyncio.run(main())
       { name: "api-forwarder /health", url: `http://127.0.0.1:${forwarderPort}/health`, headers: { Authorization: `Bearer ${internal}` } },
       { name: "router /models", url: `${base}/models` },
     ], { children: services, output });
-    for (const model of ["zai-coding/glm-5.3", "deepseek/deepseek-v4-flash", "commandcode/deepseek-v4-flash"]) {
+    for (const model of [
+      "zai-coding/glm-5.3",
+      "deepseek/deepseek-v4-flash",
+      "commandcode/deepseek-v4-flash",
+      "opencode-go/deepseek-v4.1-flash",
+      "opencode-go/glm-5.3-flash",
+    ]) {
       for (negativeControl of [false, true]) {
         const response = await fetch(`${base}/responses`, {
           method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(30000),

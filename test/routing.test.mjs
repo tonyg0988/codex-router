@@ -9552,7 +9552,13 @@ test("reasoning survives the replay onto tool-call and prose assistant turns ali
   }
 });
 
-["zai-coding/glm-5.3", "deepseek/deepseek-v4-flash", "commandcode/deepseek-v4-flash"].forEach((routedModel) => test(`${routedModel} reasoning stays structurally separate while crossing the Responses bridge`, async () => {
+[
+  "zai-coding/glm-5.3",
+  "deepseek/deepseek-v4-flash",
+  "commandcode/deepseek-v4-flash",
+  "opencode-go/deepseek-v4.1-flash",
+  "opencode-go/glm-5.3-flash",
+].forEach((routedModel) => test(`${routedModel} reasoning stays structurally separate while crossing the Responses bridge`, async () => {
   const gatewayBodies = [];
   const gateway = await mockServer(async (request, response) => {
     gatewayBodies.push(await bodyJson(request));

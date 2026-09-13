@@ -568,6 +568,21 @@ function reconciledContinuationOutput(completedOutput, outputItems) {
   if (!Array.isArray(completedOutput)) return outputItems;
   if (!Array.isArray(outputItems) || outputItems.length === 0) return completedOutput;
 
+  // LiteLLM's Chat-to-Responses adapter can assign a fresh id to a message in
+  // response.completed after already emitting that same message through
+  // response.output_item.done. The stream item is the authoritative complete
+  // item. Permit an index fallback only when both complete sequences have the
+  // same shape; tool calls still require their stable key to agree.
+  const positionallyCompatible = completedOutput.length === outputItems.length &&
+    completedOutput.every((item, index) => {
+      const done = outputItems[index];
+      if (item?.type !== done?.type) return false;
+      if (item?.type === "message") return true;
+      const key = continuationItemKey(item);
+      const doneKey = continuationItemKey(done);
+      return !key || !doneKey || key === doneKey;
+    });
+
   const doneByKey = new Map();
   for (const item of outputItems) {
     const key = continuationItemKey(item);
@@ -575,9 +590,13 @@ function reconciledContinuationOutput(completedOutput, outputItems) {
   }
 
   const used = new Set();
-  const reconciled = completedOutput.map((item) => {
+  const reconciled = completedOutput.map((item, index) => {
     const key = continuationItemKey(item);
-    const done = key ? doneByKey.get(key) : undefined;
+    let done = key ? doneByKey.get(key) : undefined;
+    if (!done && positionallyCompatible && item?.type === "message") {
+      const candidate = outputItems[index];
+      if (!used.has(candidate)) done = candidate;
+    }
     if (!done) return item;
     used.add(done);
     return done;
