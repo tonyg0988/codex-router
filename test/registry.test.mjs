@@ -812,6 +812,7 @@ test("GLM-5.3-Flash replaces OpenCode Go's withdrawn Ox Alpha route", () => {
   assert.equal(model?.autoCompact, 400_000);
   assert.ok(model.contextWindow - model.autoCompact >= 131_072);
   assert.deepEqual(model?.inputModalities, ["text", "image"]);
+  assert.equal(model?.supportsReasoningSummaries, true);
   assert.equal(MODEL_SLUG_ALIASES.get("opencode-go/ox-alpha"), model.slug);
   assert.equal(MODEL_SLUG_ALIASES.get("opencode-go/ox-alpha-free"), model.slug);
   assert.equal(MODEL_BY_SLUG.get("opencode-go/ox-alpha"), model);

@@ -2045,6 +2045,26 @@ pinned LiteLLM and run `node --test test/chat-reasoning.test.mjs`. It uses only
 loopback services and synthetic credentials, with duplicate negative controls.
 See the provider's [Responses contract](https://api-docs.deepseek.com/guides/responses_api/).
 
+### WebSocket continuation identity after Chat translation
+
+The native-reasoning family contract above and the protocol-scoped lifecycle
+repair below keep OpenCode Go reasoning private and visible in Codex. Registry
+entries for verified routes still advertise `supportsReasoningSummaries`; the
+wire repair does not make picker metadata infer itself.
+
+LiteLLM's Chat-to-Responses adapter can give a completed message one ID in
+`response.output_item.done` and a different ID in
+`response.completed.response.output`. They are one item, not two. WebSocket
+continuation reconciliation remains stable-key-first, with a positional
+message fallback only when the streamed and terminal output arrays have equal
+length, matching types at every index, and no disagreement between stable keys
+on non-message items. Prefer the complete streamed item. Never deduplicate by
+message text: two intentional messages may have identical content, while tool
+calls require their stable identity. `test/responses-websocket.test.mjs` pins
+the changed-message-ID case. The investigation, live endurance evidence, and
+update/rollback runbook are in
+`docs/OPENCODE-GO-REASONING-REPLAY-RCA.md`.
+
 ## Substituting a prompt-token count a provider reported as zero
 
 Codex decides when to compact from the `input_tokens` each response reports, so

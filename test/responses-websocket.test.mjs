@@ -736,6 +736,63 @@ test("prewarms locally and reconstructs incremental turns without losing history
   peer.close();
 });
 
+test("continuation replay does not duplicate a streamed message when the terminal snapshot changes its id", async (t) => {
+  const bodies = [];
+  const streamedMessage = {
+    type: "message",
+    id: "msg_streamed",
+    status: "completed",
+    role: "assistant",
+    content: [{ type: "output_text", text: "Step 1 next." }],
+  };
+  const terminalMessage = { ...streamedMessage, id: "msg_terminal" };
+  const toolCall = {
+    type: "function_call",
+    id: "fc_1",
+    call_id: "call_1",
+    name: "shell",
+    arguments: "{}",
+  };
+  const { server, port } = await startServer(async (request, response) => {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    bodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+    const id = bodies.length === 1 ? "resp-mismatched-message" : "resp-after-tool";
+    sse(response, [
+      { type: "response.created", response: { id } },
+      ...(bodies.length === 1
+        ? [
+            { type: "response.output_item.done", output_index: 0, item: streamedMessage },
+            { type: "response.output_item.done", output_index: 1, item: toolCall },
+            {
+              type: "response.completed",
+              response: { id, output: [terminalMessage, toolCall], usage: {} },
+            },
+          ]
+        : [{ type: "response.completed", response: { id, usage: {} } }]),
+    ]);
+  });
+  t.after(() => server.close());
+  const { peer } = await connect(port);
+  t.after(() => peer.socket.destroy());
+
+  peer.sendJson(createRequest());
+  assert.equal((await peer.nextJson()).type, "response.created");
+  assert.equal((await peer.nextJson()).type, "response.output_item.done");
+  assert.equal((await peer.nextJson()).type, "response.output_item.done");
+  assert.equal((await peer.nextJson()).type, "response.completed");
+
+  const toolResult = { type: "function_call_output", call_id: "call_1", output: "done" };
+  peer.sendJson(createRequest({
+    previous_response_id: "resp-mismatched-message",
+    input: [toolResult],
+  }));
+  assert.equal((await peer.nextJson()).type, "response.created");
+  assert.equal((await peer.nextJson()).type, "response.completed");
+  assert.deepEqual(bodies[1].input, [...bodies[0].input, streamedMessage, toolCall, toolResult]);
+  peer.close();
+});
+
 test("continuation replay prefers the complete custom tool item over a conflicting completion snapshot", async (t) => {
   const bodies = [];
   const customCall = {

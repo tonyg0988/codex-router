@@ -32,7 +32,8 @@
         "image"
       ],
       "requestProfile": "auto-tool-choice",
-      "compHash": "opencode-go-deepseek-v4-1-flash-v1"
+      "supportsReasoningSummaries": true,
+      "compHash": "opencode-go-deepseek-v4-1-flash-v2"
     }
   ]
 }

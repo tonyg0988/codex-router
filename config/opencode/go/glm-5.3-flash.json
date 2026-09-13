@@ -32,7 +32,8 @@
         "image"
       ],
       "requestProfile": "ox-alpha",
-      "compHash": "opencode-go-glm-5-3-flash-v1"
+      "supportsReasoningSummaries": true,
+      "compHash": "opencode-go-glm-5-3-flash-v2"
     }
   ]
 }

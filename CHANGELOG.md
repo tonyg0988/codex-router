@@ -64,6 +64,19 @@
   frame bound now matches the namespace relay's 10 MiB, the JSON scan budgets
   grow with it, and malformed, ambiguous, or over-budget streams still pass
   through byte-identical.
+- **WebSocket tool loops no longer multiply assistant history when LiteLLM
+  changes a message ID.** LiteLLM can emit one completed assistant message
+  with one ID and repeat it in the terminal response snapshot with another.
+  The WebSocket continuation cache treated those IDs as two messages and
+  replayed both on the next tool-result turn, causing multiplicative transcript
+  and token growth. Reconciliation remains stable-key-first and uses a strict
+  positional fallback only for equal-shaped output sequences whose non-message
+  keys do not disagree. The affected OpenCode Go routes also advertise the
+  reasoning summaries supplied by the native-reasoning contract above. Native
+  OpenAI traffic is unchanged. See
+  `docs/OPENCODE-GO-REASONING-REPLAY-RCA.md` for the RCA, regression evidence,
+  upstream-update workflow, and rollback procedure.
+
 - **Kimi no longer rejects a tool schema whose union leaf declares no type.**
   A nullable field written the ordinary way --
   `{"anyOf":[{"type":"string"},{"type":"null"}]}` -- carries no `type` of its
