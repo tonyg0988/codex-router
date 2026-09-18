@@ -2796,21 +2796,25 @@ async function summarizeWith(
   signal,
   { searchContract } = {},
 ) {
+  const consoleGoResponsesCompatibility = needsConsoleGoResponsesToolCompatibility(route);
   const compatibleInput = zenFreeCompatibleInput(
     normalizeProviderAppToolOutputs(aged.input),
     route,
   );
-  const providerInput = (needsConsoleGoResponsesToolCompatibility(route) || usesDeepSeekResponses(route))
-    ? strictOpenCodeCompactionInput(compatibleInput, payload.tools, {
+  const providerCompatibleInput = consoleGoResponsesCompatibility
+    ? agentMessagesAsUserMessages(compatibleInput)
+    : compatibleInput;
+  const providerInput = (consoleGoResponsesCompatibility || usesDeepSeekResponses(route))
+    ? strictOpenCodeCompactionInput(providerCompatibleInput, payload.tools, {
         maxNameLength: 64,
       })
     : needsZenFreeToolCompatibility(route)
       ? bridgeCustomTools(
         [],
-        compatibleInput,
+        providerCompatibleInput,
         new Map(),
       ).input
-      : compatibleInput;
+      : providerCompatibleInput;
   const bridged = await bridgeVisionInput(
     providerInput,
     route,
@@ -3412,6 +3416,9 @@ async function buildRoutedRequest({ request, payload, route, agedInput }) {
     route,
     request,
   );
+  const providerCompatibleInput = consoleGoResponsesCompatibility
+    ? agentMessagesAsUserMessages(bridged)
+    : bridged;
   // `bridgeVisionInput` returns its argument unchanged when there is no image
   // to read, and `carryReasoningThroughInput` writes into the array it is
   // given -- so without this copy the first build would rewrite the shared
@@ -3422,8 +3429,8 @@ async function buildRoutedRequest({ request, payload, route, agedInput }) {
   // -- a turn that still reaches the provider, and still reads as a 200,
   // having quietly replaced the prompt with its own letters.
   const input = deepSeekResponses
-    ? deepSeekResponsesInput(bridged)
-    : Array.isArray(bridged) ? [...bridged] : bridged;
+    ? deepSeekResponsesInput(providerCompatibleInput)
+    : Array.isArray(providerCompatibleInput) ? [...providerCompatibleInput] : providerCompatibleInput;
   // Legacy Chat routes retain their existing reasoning carry. The native
   // DeepSeek route already has exactly one plaintext reasoning item and must
   // not copy it into an assistant message for Chat translation.

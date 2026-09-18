@@ -1962,6 +1962,19 @@ function goCompatibilityRequestPayload(
     input: [
       { type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] },
       {
+        type: "agent_message",
+        id: "amsg_go_child_handoff",
+        author: "/root",
+        recipient: "/root/worker",
+        content: [
+          {
+            type: "input_text",
+            text: "Message Type: NEW_TASK\nTask name: /root/worker\nSender: /root\nPayload:\n",
+          },
+          { type: "encrypted_content", encrypted_content: "GO_CHILD_HANDOFF" },
+        ],
+      },
+      {
         type: "function_call",
         name: GO_LONG_TOOL,
         namespace: GO_NAMESPACE,
@@ -2100,6 +2113,20 @@ test("OpenCode Go Responses uses one bounded function-tool contract in both resp
       outgoing.tools.some((tool) => tool.name === "codex_app__create_thread"),
       false,
       "the chat-only deferred app snapshot is not injected on Console Go Responses",
+    );
+    assert.equal(
+      outgoing.input.some((item) => item.type === "agent_message"),
+      false,
+      "Codex-private child handoffs do not cross the public Responses boundary",
+    );
+    assert.ok(
+      outgoing.input.some(
+        (item) =>
+          item.type === "message" &&
+          item.role === "user" &&
+          item.content?.some((part) => part.text === "GO_CHILD_HANDOFF"),
+      ),
+      "the readable child handoff survives as a public user message",
     );
     assert.ok(
       outgoing.tools.some(
@@ -2293,6 +2320,20 @@ test("OpenCode Go compaction removes native tool history before the strict endpo
   assert.equal(outgoing.model, "opencode-go-responses-gpt-5-6-luna");
   assert.deepEqual(outgoing.tools, []);
   assert.equal(outgoing.tool_choice, undefined);
+  assert.equal(
+    outgoing.input.some((item) => item.type === "agent_message"),
+    false,
+    "compaction never forwards Codex-private child handoffs",
+  );
+  assert.ok(
+    outgoing.input.some(
+      (item) =>
+        item.type === "message" &&
+        item.role === "user" &&
+        item.content?.some((part) => part.text === "GO_CHILD_HANDOFF"),
+    ),
+    "compaction preserves the readable child handoff",
+  );
   assert.equal(
     outgoing.input.some(
       (item) =>
