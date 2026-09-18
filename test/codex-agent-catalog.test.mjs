@@ -145,3 +145,18 @@ test("a configured subagent effort rides along in the agent definition", () => {
     "an unset effort must not freeze the model's own default into the file",
   );
 });
+
+test("agent status compares the configured effort written by sync", () => {
+  const agentsDir = mkdtempSync(path.join(os.tmpdir(), "codex-router-agents-"));
+  const definition = routedAgentDefinition(kimi, { effort: "max" });
+  writeFileSync(path.join(agentsDir, definition.fileName), definition.contents, {
+    mode: 0o600,
+  });
+
+  const status = routedCodexAgentStatus([kimi], agentsDir, {
+    effortForModel: () => "max",
+  });
+  assert.equal(status.current, 1);
+  assert.deepEqual(status.stale, []);
+  assert.equal(status.ok, true);
+});

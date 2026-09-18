@@ -145,7 +145,11 @@ export function syncRoutedCodexAgents(models, agentsDir = CODEX_AGENTS_DIR) {
   }
 }
 
-export function routedCodexAgentStatus(models, agentsDir = CODEX_AGENTS_DIR) {
+export function routedCodexAgentStatus(
+  models,
+  agentsDir = CODEX_AGENTS_DIR,
+  { effortForModel = subagentEffort } = {},
+) {
   const status = {
     expected: models.length,
     current: 0,
@@ -156,7 +160,9 @@ export function routedCodexAgentStatus(models, agentsDir = CODEX_AGENTS_DIR) {
   };
   const expectedFiles = new Set();
   for (const model of models) {
-    const definition = routedAgentDefinition(model);
+    const definition = routedAgentDefinition(model, {
+      effort: effortForModel(model.slug),
+    });
     const target = path.join(agentsDir, definition.fileName);
     expectedFiles.add(definition.fileName);
     if (!existsSync(target)) {
